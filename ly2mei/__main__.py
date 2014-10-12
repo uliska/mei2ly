@@ -67,8 +67,12 @@ _XMLNS = '{http://www.w3.org/XML/1998/namespace}'
 _XMLID = '{http://www.w3.org/XML/1998/namespace}id'
 _MEINS = '{http://www.music-encoding.org/ns/mei}'
 
-_VALID_NOTE_LETTERS = ('a', 'b', 'c', 'd', 'e', 'f', 'g')
+_VALID_NOTE_LETTERS = {'a': 'A', 'b': 'B', 'c': 'C', 'd': 'D', 'e': 'E', 'f': 'F', 'g': 'G',
+                       'r': 'rest', 'R': 'REST', 's': 'space'}
+_VALID_ACCIDENTALS = {'is': 's', 'es': 'f', 'isis': 'ss', 'eses': 'ff'}
 
+# Error Messages
+_PITCH_CLASS_ERROR = 'Cannot decode pitch class: {}'
 
 # register the 'mei' namespace
 ETree.register_namespace('mei', _MEINS[1:-1])
@@ -93,9 +97,12 @@ def do_pitch_class(markup):
     Given the part of a LilyPond note that includes the pitch class specification, find it. Rests
     and spacers also work, but note the return type below.
 
-    :returns: Eiether a tuple indicating the required values for the @pname and @accid attributes,
-        respectively, or a single string indicating what type of rest or space object this is.
-    :rtype: 2-tuple of str or str
+    :returns: A tuple indicating the required values for the @pname and @accid attributes,
+        respectively. If element 0 is ``'rest'``, ``'REST'``, or ``'space'``, it shall correspond
+        to the <rest>, <mRest>, and <space> elements, respectively.
+    :rtype: 2-tuple of str
+
+    :raises: :exc:`RuntimeError` if the pitch class cannot be determined.
 
     **Examples**
 
@@ -113,43 +120,27 @@ def do_pitch_class(markup):
     Rests and spacers:
 
     >>> do_pitch_class('r')
-    'rest'
+    'rest', None
     >>> do_pitch_class('R')
-    'REST'
+    'REST', None
     >>> do_pitch_class('s')
-    'space'
+    'space', None
     """
-    # TODO: rewrite this silly function
 
     if 1 == len(markup):
         if markup in _VALID_NOTE_LETTERS:
-            return markup.upper(), None
-        elif 'r' == markup:
-            return 'rest'
-        elif 'R' == markup:
-            return 'rest'
-        elif 's' == markup:
-            return 'space'
+            return _VALID_NOTE_LETTERS[markup], None
         else:
-            pass  # TODO: panic?
+            raise RuntimeError(_PITCH_CLASS_ERROR.format(markup))
     else:
         letter = do_pitch_class(markup[0])[0]
         accid = markup[1:]
         if 's' == accid and ('a' == letter or 'e' == letter):
             return letter, 's'
-        elif 0 != len(accid) % 2:
-            pass  # TODO: panic?
+        elif accid in _VALID_ACCIDENTALS:
+            return letter, _VALID_ACCIDENTALS[accid]
         else:
-            if 'is' == accid:
-                return letter, 's'
-            elif 'es' == accid:
-                return letter, 'f'
-            elif 'isis' == accid:
-                return letter, 'ss'
-            elif 'eses' == accid:
-                return letter, 'ff'
-            else:
-                pass  # TODO: panic?
+            raise RuntimeError(_PITCH_CLASS_ERROR.format(markup))
 
 
 def do_note_block(markup):
