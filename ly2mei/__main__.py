@@ -47,7 +47,8 @@ This is a list of the currently-allowed syntax. If something does not appear on 
 not picked up by the ``ly2mei`` program. The ``sillytest.ly`` file should use all the features at
 least once.
 
-    - [a..g] letter names for pitch (i.e., do not use accidentals or rests)
+    - [a..g] letter names for pitch (i.e., do not use rests, measure rests, or spaces)
+    - explicit accidental display (i.e., the ``!`` and ``?`` characters after a pitch)
     - absolute octave entry (i.e., do not use ``\relative``)
     - durations specified on every note including 1, 2, 4, 8, 16, 32, 64, ... (not ``\longa`` etc.
         or dotted durations)
@@ -98,7 +99,7 @@ def do_pitch_class(markup):
     Given the part of a LilyPond note that includes the pitch class specification, find it. Rests
     and spacers also work, but note the return type below.
 
-    :returns: A tuple indicating the required values for the @pname and @accid attributes,
+    :returns: A tuple indicating the required values for the @pname and @accid.ges attributes,
         respectively. If element 0 is ``'rest'``, ``'REST'``, or ``'space'``, it shall correspond
         to the <rest>, <mRest>, and <space> elements, respectively.
     :rtype: 2-tuple of str
@@ -152,13 +153,15 @@ def do_note_block(markup):
         or ``'t1'`` that means to start or end a slur, respectively. If it's ``'i2'`` or ``'t2'``
         it's for a phrasing slur.
     """
-    # figure out @pname and @accid
-    pname, accid = do_pitch_class(markup[:find_lowest_of(markup, [',', "'", '1', '2', '4', '8'])])
+    PITCH_ENDERS =(',', "'", '1', '2', '4', '8', '!', '?')
+    # figure out @pname and @accid.ges
+    pname, accid_ges = do_pitch_class(markup[:find_lowest_of(markup, PITCH_ENDERS)])
 
     octave = 3
     stopped_at = 0
+    accid = None  # may be None, a string for @accid, or an Element for <accid>
 
-    # figure out @oct
+    # figure out @oct and @accid
     for i in range(1, len(markup)):
         each_char = markup[i]
         if each_char.isdigit():
@@ -166,8 +169,16 @@ def do_note_block(markup):
             break
         elif ',' == each_char:
             octave -= 1
-        else:  # assume it's '
+        elif "'" == each_char:
             octave += 1
+        elif '!' == each_char:
+            accid = accid_ges if accid_ges is not None else 'n'
+        elif '?' == each_char:
+            accid = ETree.Element('{}accid'.format(_MEINS),
+                                  {'func': 'caution'})
+            accid.set('accid', accid_ges if accid_ges is not None else 'n')
+        else:
+            pass  # TODO: panic
 
     # figure out @dur
     dur = ''
@@ -179,11 +190,19 @@ def do_note_block(markup):
             stopped_at = i
             break
 
+    # make the <note> element
     the_elem = ETree.Element('{}note'.format(_MEINS),
                              {'pname': pname, 'dur': dur, 'oct': str(octave),
                               _XMLID: str(uuid.uuid4())})
+
+    # set @accid.ges and @accid, as required
+    if accid_ges is not None:
+        the_elem.set('accid.ges', accid_ges)
     if accid is not None:
-        the_elem.set('accid', accid)
+        if isinstance(accid, basestring):
+            the_elem.set('accid', accid)
+        else:
+            the_elem.append(accid)
 
     # figure out a slur
     if '(' in markup:
