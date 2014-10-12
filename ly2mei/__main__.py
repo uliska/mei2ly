@@ -54,6 +54,8 @@ least once.
         or dotted durations)
     - slurs *within a single measure*
     - multiple measures separated by ``|`` (including trailing bar-check)
+    - clefs, except with octavation numbers, specifically the following varieties: treble, bass,
+        alto, tenor, french, soprano, mezzosoprano, baritone, varbaritone, subbass, and percussion
 """
 
 import six
@@ -213,6 +215,50 @@ def do_note_block(markup):
     return the_elem
 
 
+def do_clef(markup):
+    """
+    Given the specification for a clef, return a <clef> element.
+
+    ** Examples: **
+    >>> do_clef('treble')
+    <clef line="2" shape="G"/>
+    >>> do_clef('"treble_8"')
+    <clef line="2" shape="G" oct="3"/>
+    """
+
+    markup = markup.replace('"', '')
+
+    # set the @shape and @line attributes
+    if markup.startswith('treble') or markup.startswith('french'):
+        shape = 'G'
+        CLEF_LINES = {'french': '1', 'treble': '2'}
+        line = CLEF_LINES[markup]
+    elif markup.startswith('bass') or markup.startswith('varbaritone') or markup.startswith('subbass'):
+        shape = 'F'
+        CLEF_LINES = {'bass': '4', 'varbaritone': '3', 'subbass': '5'}
+        line = CLEF_LINES[markup]
+    elif markup.startswith('percussion'):
+        shape = 'perc'
+        line = '3'
+    else:
+        shape = 'C'
+        CLEF_LINES = {'soprano': '1', 'mezzosoprano': '2', 'alto': '3', 'tenor': '4', 'baritone': '5'}
+        line = CLEF_LINES[markup]
+
+    elem = ETree.Element('{}clef'.format(_MEINS), {'shape': shape, 'line': line})
+
+    # set the @dis and @dis.place attributes
+    # TODO: the "^8"-type things won't work yet because they clog up the dicts above
+    if '^' in markup:
+        elem.set('dis.place', 'above')
+        elem.set('dis', markup[markup.find('^'):])
+    elif '_' in markup:
+        elem.set('dis.place', 'below')
+        elem.set('dis', markup[markup.find('_'):])
+
+    return elem
+
+
 def do_measure(markup):
     """
     Process all the stuff in a single measure.
@@ -221,8 +267,12 @@ def do_measure(markup):
     """
     list_of_elems = []
     slur_active = None
-    for each_note in markup.split():
-        elem = do_note_block(each_note)
+    markups = markup.split()
+    for i, each_note in enumerate(markups):
+        if each_note[0] in _VALID_NOTE_LETTERS:
+            elem = do_note_block(each_note)
+        elif '\clef' == each_note:
+            elem = do_clef(markups[i + 1])
         list_of_elems.append(elem)
 
         if 'i1' == elem.get('slur'):
