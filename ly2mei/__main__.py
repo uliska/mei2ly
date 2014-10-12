@@ -73,6 +73,7 @@ _VALID_ACCIDENTALS = {'is': 's', 'es': 'f', 'isis': 'ss', 'eses': 'ff'}
 
 # Error Messages
 _PITCH_CLASS_ERROR = 'Cannot decode pitch class: {}'
+_SLUR_OPEN_WARNING = 'Slur already open in "{}"'
 
 # register the 'mei' namespace
 ETree.register_namespace('mei', _MEINS[1:-1])
@@ -207,7 +208,8 @@ def do_measure(markup):
 
         if 'i1' == elem.get('slur'):
             if slur_active is not None:
-                pass  # TODO: should panic; this means a slur wasn't closed
+                # previous slur wasn't closed
+                raise RuntimeWarning(_SLUR_OPEN_WARNING.format(markup.strip()))
             else:
                 slur_active = ETree.Element('{}slur'.format(_MEINS),
                                             {'startid': elem.get(_XMLID),
