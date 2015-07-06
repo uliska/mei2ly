@@ -326,8 +326,10 @@ if '__main__' == __name__:
     [section.append(x) for x in measures]
     score = ETree.Element('{}score'.format(_MEINS))
     score.append(section)
+    mdiv = ETree.Element('{}mdiv'.format(_MEINS))
+    mdiv.append(score)
     body = ETree.Element('{}body'.format(_MEINS))
-    body.append(score)
+    body.append(mdiv)
     music = ETree.Element('{}music'.format(_MEINS))
     music.append(body)
     mei_elem = ETree.Element('{}mei'.format(_MEINS), {'meiversion': '2013'})
