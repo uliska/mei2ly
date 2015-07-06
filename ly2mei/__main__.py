@@ -201,7 +201,7 @@ def do_note_block(markup):
     if accid_ges is not None:
         the_elem.set('accid.ges', accid_ges)
     if accid is not None:
-        if isinstance(accid, basestring):
+        if isinstance(accid, six.string_types):
             the_elem.set('accid', accid)
         else:
             the_elem.append(accid)
